@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Memoria — Photo Gallery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ── RESET & BASE ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #080810;
+    --surface:  #0e0e1a;
+    --surface2: #13131f;
+    --border:   #1e1e30;
+    --border2:  #2a2a40;
+    --text:     #e2e2f0;
+    --muted:    #6a6a88;
+    --muted2:   #4a4a64;
+    --accent:   #7c6fff;
+    --accent2:  #a590ff;
+    --green:    #34c77a;
+    --apple:    #f5a623;
+    --danger:   #ff5f5f;
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-mono:    'DM Mono', monospace;
+  }
+  html { font-size: 14px; }
+  body {
+    font-family: var(--font-mono);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  button { font-family: var(--font-mono); cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp   { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes slideUp  { from { opacity:0; transform:translateX(-50%) translateY(20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+  @keyframes toastIn  { from { opacity:0; transform:translateX(32px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes spin     { to { transform: rotate(360deg); } }
+  @keyframes pulse    { 0%,100% { opacity:.5; } 50% { opacity:1; } }
+  @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+
+  /* ── LAYOUT ── */
+  #app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ── HEADER ── */
+  #header {
+    position: sticky; top: 0; z-index: 50;
+    height: 62px;
+    background: rgba(8,8,16,.92);
+    backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 24px;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 9px;
+    flex-shrink: 0;
+  }
+  .logo-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, #7c6fff, #a590ff);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; color: white;
+  }
+  .logo-name {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 700; letter-spacing: -.3px;
+  }
+  .badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 20px;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--font-mono);
+  }
+  .badge-dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
+  .badge-green { color: var(--green); background: #0d2218; }
+  .badge-apple { color: var(--apple); background: #1e1a0e; }
+
+  .search-wrap {
+    flex: 1; max-width: 340px; position: relative;
+  }
+  .search-icon {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    color: var(--muted2); font-size: 15px; pointer-events: none;
+  }
+  #search-input {
+    width: 100%; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 9px;
+    padding: 7px 12px 7px 32px;
+    color: var(--text); font-size: 12px; font-family: var(--font-mono);
+    outline: none; transition: border-color .2s;
+  }
+  #search-input:focus { border-color: var(--accent); }
+
+  .header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 9px; border: 1px solid transparent;
+    padding: 7px 14px; font-size: 11px; font-weight: 500;
+    font-family: var(--font-mono); transition: all .18s;
+    cursor: pointer; white-space: nowrap;
+  }
+  .btn-ghost { background: transparent; border-color: var(--border2); color: var(--muted); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent2); }
+  .btn-select { background: transparent; border-color: var(--border2); color: var(--muted); }
+  .btn-select.active { background: #1a1a30; border-color: #3a3a5a; color: var(--accent2); }
+  .btn-connect { background: transparent; border-color: #3a2a5a; color: var(--accent2); }
+  .btn-connect:hover { background: #1a1a2e; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    border: none; color: white; font-weight: 600;
+    box-shadow: 0 4px 18px rgba(124,111,255,.3);
+  }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+  /* ── BODY LAYOUT ── */
+  #body { display: flex; flex: 1; }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: 210px; flex-shrink: 0;
+    background: #0b0b14;
+    border-right: 1px solid var(--border);
+    padding: 20px 14px;
+    position: sticky; top: 62px; height: calc(100vh - 62px);
+    overflow-y: auto;
+  }
+  .sidebar-section { margin-bottom: 26px; }
+  .sidebar-label {
+    font-size: 9px; font-weight: 500; letter-spacing: .12em;
+    color: var(--muted2); text-transform: uppercase;
+    margin-bottom: 10px; padding-left: 4px;
+  }
+  .storage-card {
+    background: var(--surface); border-radius: 11px; padding: 14px;
+    border: 1px solid var(--border);
+  }
+  .storage-num { font-size: 20px; font-weight: 600; font-family: var(--font-display); margin-bottom: 2px; }
+  .storage-sub { font-size: 10px; color: var(--muted); margin-bottom: 10px; }
+  .storage-bar { height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .storage-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; width: 34%; }
+  .storage-pct { font-size: 9px; color: var(--muted2); margin-top: 5px; }
+
+  .nav-btn {
+    width: 100%; display: flex; align-items: center; gap: 9px;
+    background: transparent; border: 1px solid transparent;
+    border-radius: 8px; padding: 8px 10px; color: var(--muted);
+    font-size: 12px; font-family: var(--font-mono);
+    cursor: pointer; transition: all .15s; margin-bottom: 3px; text-align: left;
+  }
+  .nav-btn:hover { background: var(--surface); color: var(--text); }
+  .nav-btn.active { background: #1a1a2e; border-color: #2a2a4a; color: var(--accent2); font-weight: 500; }
+  .nav-icon { font-size: 13px; }
+  .nav-count { margin-left: auto; font-size: 10px; color: var(--muted2); }
+
+  .view-row { display: flex; gap: 5px; }
+  .view-btn {
+    flex: 1; padding: 7px 0; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 7px;
+    color: var(--muted2); font-size: 15px; cursor: pointer; transition: all .15s;
+  }
+  .view-btn.active { background: #1a1a30; border-color: #3a3a5a; color: var(--accent2); }
+
+  /* ── MAIN ── */
+  #main { flex: 1; padding: 22px 26px; overflow-y: auto; }
+
+  /* ── DROP ZONE ── */
+  #dropzone {
+    border: 2px dashed var(--border2);
+    border-radius: 13px; padding: 18px 24px;
+    background: var(--surface); display: flex; align-items: center; gap: 14px;
+    cursor: pointer; margin-bottom: 24px;
+    transition: all .2s; animation: fadeUp .4s ease;
+  }
+  #dropzone:hover, #dropzone.drag-over {
+    border-color: var(--accent); background: rgba(124,111,255,.06);
+  }
+  .dz-icon {
+    width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0;
+    background: rgba(124,111,255,.15);
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .dz-title { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+  .dz-sub { font-size: 11px; color: var(--muted); }
+  .dz-btn {
+    margin-left: auto; flex-shrink: 0;
+    font-size: 11px; color: var(--accent); background: #1a1a2e;
+    padding: 6px 13px; border-radius: 7px; font-weight: 600;
+    font-family: var(--font-mono); border: none;
+  }
+
+  /* ── UPLOAD PROGRESS ── */
+  #upload-bar {
+    background: var(--surface2); border-radius: 11px; padding: 14px 16px;
+    margin-bottom: 22px; border: 1px solid #2a2a4a;
+    animation: fadeUp .3s ease; display: none;
+  }
+  .upload-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
+  .upload-title { font-size: 12px; font-weight: 500; }
+  .upload-pct { font-size: 11px; color: var(--accent); }
+  .prog-track { height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; width: 0%; transition: width .1s; }
+  .upload-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .upload-chip { font-size: 10px; color: var(--muted); background: #1a1a28; padding: 2px 8px; border-radius: 20px; }
+
+  /* ── MONTH / DAY ── */
+  .month-group { margin-bottom: 36px; }
+  .month-header {
+    position: sticky; top: 0; z-index: 8;
+    background: rgba(8,8,16,.85); backdrop-filter: blur(18px);
+    padding: 8px 0 14px;
+  }
+  .month-title {
+    font-family: var(--font-display);
+    font-size: 26px; font-weight: 700; letter-spacing: -.4px;
+  }
+  .day-group { margin-bottom: 24px; }
+  .day-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+  }
+  .day-label { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .day-line { flex: 1; height: 1px; background: var(--border); }
+  .day-count { font-size: 10px; color: var(--muted2); }
+
+  /* ── GRID VIEW ── */
+  .grid-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 7px;
+  }
+  .masonry-view { columns: 4 175px; column-gap: 7px; }
+
+  /* ── MEDIA CARD ── */
+  .media-card {
+    position: relative; border-radius: 9px; overflow: hidden;
+    background: var(--surface); cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .grid-view .media-card { aspect-ratio: 1; }
+  .masonry-view .media-card { break-inside: avoid; margin-bottom: 7px; }
+  .media-card:hover { transform: scale(1.025); box-shadow: 0 8px 28px rgba(0,0,0,.5); }
+  .media-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .masonry-view .media-card img { height: auto; }
+  .card-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.65) 0%, transparent 50%);
+    opacity: 0; transition: opacity .2s;
+  }
+  .media-card:hover .card-overlay { opacity: 1; }
+  .card-badge {
+    position: absolute; bottom: 7px; left: 7px;
+    font-size: 9px; color: rgba(255,255,255,.75);
+    background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
+    padding: 2px 7px; border-radius: 20px;
+  }
+  .card-badge.synced { color: var(--green); }
+  .video-play {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.2);
+  }
+  .play-circle {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(0,0,0,.6); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: white; padding-left: 2px;
+  }
+  /* Select checkbox */
+  .select-check {
+    position: absolute; top: 8px; left: 8px;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid white;
+    background: rgba(0,0,0,.4);
+    display: none; align-items: center; justify-content: center;
+    z-index: 3; transition: all .15s; font-size: 11px; color: white;
+  }
+  .select-mode .select-check { display: flex; }
+  .select-mode .media-card.selected .select-check {
+    background: var(--accent); border-color: var(--accent);
+  }
+  .select-mode .media-card.selected { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  /* ── LIST VIEW ── */
+  .list-view {
+    background: var(--surface2); border-radius: 11px;
+    border: 1px solid var(--border); overflow: hidden;
+  }
+  .list-row {
+    display: flex; align-items: center; gap: 13px;
+    padding: 10px 15px; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background .15s;
+  }
+  .list-row:last-child { border-bottom: none; }
+  .list-row:hover { background: #17172a; }
+  .select-mode .list-row.selected { background: #1a1a30; }
+  .list-thumb {
+    width: 42px; height: 42px; border-radius: 7px;
+    overflow: hidden; flex-shrink: 0; position: relative;
+  }
+  .list-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .list-thumb .vplay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.4); font-size: 12px;
+  }
+  .list-name { font-size: 12px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .list-end { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .synced-pill {
+    font-size: 10px; padding: 2px 8px; border-radius: 20px;
+    background: var(--surface); color: var(--muted2);
+  }
+  .synced-pill.ok { color: var(--green); background: #0d2218; }
+  .list-check {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid var(--border2);
+    display: none; align-items: center; justify-content: center; font-size: 10px;
+    flex-shrink: 0; transition: all .15s;
+  }
+  .select-mode .list-check { display: flex; }
+  .select-mode .list-row.selected .list-check {
+    background: var(--accent); border-color: var(--accent); color: white;
+  }
+
+  /* ── EMPTY STATE ── */
+  #empty {
+    text-align: center; padding: 60px 0; color: var(--muted2);
+    display: none;
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-title { font-size: 15px; font-weight: 500; margin-bottom: 6px; color: var(--muted); }
+  .empty-sub { font-size: 12px; }
+
+  /* ── FLOATING SELECT BAR ── */
+  #select-bar {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+    z-index: 80; display: none; align-items: center; gap: 7px;
+    background: #13131f; border: 1px solid #2e2e48;
+    border-radius: 999px; padding: 9px 13px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(124,111,255,.12);
+    backdrop-filter: blur(20px);
+    white-space: nowrap; animation: slideUp .25s cubic-bezier(.16,1,.3,1);
+  }
+  #select-bar.visible { display: flex; }
+  .sb-circle {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: white; flex-shrink: 0; transition: all .15s;
+  }
+  .sb-circle.has-sel { background: var(--accent); border-color: var(--accent); }
+  .sb-count { font-size: 12px; font-weight: 600; min-width: 75px; padding-right: 4px; }
+  .sb-divider { width: 1px; height: 18px; background: var(--border2); margin: 0 3px; }
+  .sb-btn {
+    background: none; border: none; font-family: var(--font-mono);
+    font-size: 11px; color: var(--accent2); padding: 5px 10px;
+    border-radius: 20px; cursor: pointer; font-weight: 500;
+    transition: background .15s;
+  }
+  .sb-btn:hover { background: #1e1e30; }
+  .sb-btn.desel { color: var(--muted); }
+  .sb-btn.desel:hover { background: #1a1a28; }
+  .sb-delete {
+    background: #2a0f0f; border: 1px solid #5a2020; border-radius: 20px;
+    color: var(--danger); font-size: 11px; font-weight: 600;
+    padding: 5px 15px; cursor: pointer; transition: all .15s;
+    font-family: var(--font-mono);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .sb-delete:hover { background: #3d1212; }
+  .sb-delete:disabled { opacity: .3; cursor: default; pointer-events: none; }
+  .sb-cancel {
+    background: none; border: 1px solid var(--border2); border-radius: 20px;
+    color: var(--muted); font-size: 11px; padding: 5px 13px; cursor: pointer;
+    font-family: var(--font-mono); transition: all .15s;
+  }
+  .sb-cancel:hover { border-color: var(--muted); color: var(--text); }
+
+  /* ── MODALS ── */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,.82); backdrop-filter: blur(18px);
+    display: none; align-items: center; justify-content: center;
+    animation: fadeIn .2s ease;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 22px; width: 90%; max-width: 460px;
+    box-shadow: 0 50px 120px rgba(0,0,0,.8);
+    overflow: hidden; animation: fadeUp .25s ease;
+  }
+  .modal-inner { padding: 28px 30px 30px; }
+  .modal-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+  .modal-title { font-family: var(--font-display); font-size: 21px; font-weight: 700; margin-bottom: 3px; }
+  .modal-sub { font-size: 11px; color: var(--muted); }
+  .modal-close-btn {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #1a1a28; border: none; color: var(--muted);
+    font-size: 15px; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; transition: background .15s;
+  }
+  .modal-close-btn:hover { background: #2a2a3a; }
+
+  /* Connect tabs */
+  .connect-tabs { display: flex; gap: 4px; background: #12121e; border-radius: 11px; padding: 4px; margin-bottom: 22px; }
+  .ctab {
+    flex: 1; padding: 8px 10px; border-radius: 8px; border: none;
+    background: transparent; color: var(--muted); font-size: 11px;
+    font-family: var(--font-mono); font-weight: 400;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: all .15s;
+  }
+  .ctab.active { background: #1e1e30; color: var(--text); font-weight: 600; box-shadow: 0 1px 6px rgba(0,0,0,.3); }
+  .ctab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+  /* Connect tab content */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .connect-center { text-align: center; padding: 6px 0 16px; }
+  .connect-icon { font-size: 40px; margin-bottom: 10px; }
+  .connect-desc { font-size: 11px; color: var(--muted); line-height: 1.75; }
+  .feature-list { background: #12121e; border-radius: 11px; margin-bottom: 18px; }
+  .feature-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 13px; border-bottom: 1px solid var(--border);
+    font-size: 11px; color: #7a7a9a;
+  }
+  .feature-row:last-child { border-bottom: none; }
+  .feature-icon { font-size: 13px; }
+  .connect-btn {
+    width: 100%; padding: 13px; border: none; border-radius: 11px;
+    color: white; font-size: 12px; font-weight: 600;
+    font-family: var(--font-mono); cursor: pointer; transition: all .2s;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+  }
+  .connect-btn.google { background: linear-gradient(135deg, #4285f4, #34a853); box-shadow: 0 5px 18px rgba(66,133,244,.3); }
+  .connect-btn.google:hover { filter: brightness(1.08); }
+  .connect-btn.loading { background: #1a1a2e; cursor: default; }
+  .spinner { width: 14px; height: 14px; animation: spin .9s linear infinite; }
+
+  /* Apple method cards */
+  .method-card {
+    background: #12121e; border-radius: 13px; border: 1px solid var(--border);
+    padding: 13px 15px; display: flex; gap: 13px; margin-bottom: 9px;
+  }
+  .method-icon-wrap {
+    width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+    background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 17px;
+  }
+  .method-title-row { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+  .method-title { font-size: 12px; font-weight: 600; }
+  .method-badge { font-size: 9px; padding: 2px 7px; border-radius: 20px; }
+  .method-desc { font-size: 10px; color: var(--muted); line-height: 1.65; margin-bottom: 9px; }
+  .method-btn {
+    font-size: 10px; font-weight: 600; font-family: var(--font-mono);
+    padding: 6px 13px; border-radius: 7px; border: 1px solid var(--border2);
+    color: white; cursor: pointer; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .tip-box {
+    background: #0c0c14; border-radius: 9px; padding: 10px 13px;
+    border: 1px solid var(--border); font-size: 10px; color: var(--muted2);
+    line-height: 1.7; margin-top: 2px;
+  }
+  /* Connected state */
+  .connected-state { text-align: center; padding: 18px 0; }
+  .connected-icon { font-size: 34px; margin-bottom: 10px; }
+  .connected-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .connected-sub { font-size: 11px; color: var(--muted); margin-bottom: 18px; }
+  .disconnect-btn {
+    background: none; border: 1px solid #3a1a1a; border-radius: 8px;
+    color: var(--danger); font-size: 11px; padding: 7px 15px;
+    cursor: pointer; font-family: var(--font-mono); transition: all .15s;
+  }
+  .disconnect-btn:hover { background: #2a0f0f; }
+
+  /* ── DELETE CONFIRM MODAL ── */
+  #delete-modal .modal { border-color: #3a1a1a; max-width: 360px; }
+  .del-icon-wrap {
+    width: 50px; height: 50px; border-radius: 50%;
+    background: #2a0f0f; border: 2px solid #5a2020;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 21px; margin: 0 auto 15px;
+  }
+  .del-title { font-size: 17px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+  .del-desc { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.65; margin-bottom: 22px; }
+  .del-actions { display: flex; gap: 9px; }
+  .del-cancel {
+    flex: 1; padding: 11px; background: #14141f;
+    border: 1px solid var(--border2); border-radius: 11px;
+    color: #8a8aaa; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: var(--font-mono); transition: all .15s;
+  }
+  .del-cancel:hover { border-color: var(--muted); color: var(--text); }
+  .del-confirm {
+    flex: 1; padding: 11px;
+    background: linear-gradient(135deg, #c0392b, #e74c3c);
+    border: none; border-radius: 11px;
+    color: white; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: var(--font-mono);
+    box-shadow: 0 4px 14px rgba(231,76,60,.3); transition: all .15s;
+  }
+  .del-confirm:hover { filter: brightness(1.1); }
+
+  /* ── LIGHTBOX ── */
+  #lightbox {
+    position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,.96); backdrop-filter: blur(22px);
+    display: none; align-items: center; justify-content: center;
+    animation: fadeIn .2s ease;
+  }
+  #lightbox.open { display: flex; }
+  .lb-close {
+    position: absolute; top: 18px; right: 18px;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(255,255,255,.1); border: none;
+    color: white; font-size: 17px; cursor: pointer; transition: background .15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .lb-close:hover { background: rgba(255,255,255,.18); }
+  .lb-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(255,255,255,.1); border: none;
+    color: white; font-size: 22px; cursor: pointer; transition: background .15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .lb-nav:hover { background: rgba(255,255,255,.2); }
+  #lb-prev { left: 18px; }
+  #lb-next { right: 18px; }
+  .lb-content { max-width: 80vw; max-height: 80vh; text-align: center; }
+  #lb-img { max-width: 100%; max-height: 74vh; border-radius: 11px; object-fit: contain; box-shadow: 0 30px 80px rgba(0,0,0,.8); }
+  .lb-meta { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+  .lb-name { font-size: 13px; font-weight: 500; }
+  .lb-size { font-size: 11px; color: var(--muted); }
+  .lb-sync { font-size: 10px; padding: 3px 10px; border-radius: 20px; }
+  .lb-sync.ok { color: var(--green); background: #0d2218; }
+  .lb-sync.local { color: var(--accent); background: #1a1a2e; }
+  .lb-open { font-size: 11px; color: var(--green); text-decoration: none; transition: opacity .15s; }
+  .lb-open:hover { opacity: .75; }
+  .lb-date { font-size: 11px; color: var(--muted2); margin-top: 5px; }
+  .lb-counter { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--muted2); }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 22px; right: 22px; z-index: 500;
+    border-radius: 11px; padding: 11px 16px;
+    font-size: 12px; font-weight: 500; font-family: var(--font-mono);
+    box-shadow: 0 8px 28px rgba(0,0,0,.45);
+    display: none; align-items: center; gap: 9px;
+    animation: toastIn .3s ease;
+  }
+  #toast.show { display: flex; }
+  #toast.success { background: #1a2e1a; border: 1px solid #2a5a2a; color: #6bcf6b; }
+  #toast.info    { background: #1a1a2e; border: 1px solid #3a3a5a; color: var(--accent2); }
+  #toast.apple   { background: #1e1a0e; border: 1px solid #4a3a1a; color: var(--apple); }
+  #toast.error   { background: #2a0f0f; border: 1px solid #5a2020; color: var(--danger); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header id="header">
+    <div class="logo">
+      <div class="logo-icon">◈</div>
+      <span class="logo-name">Memoria</span>
+      <span id="badge-google" class="badge badge-green" style="display:none">
+        <span class="badge-dot" style="background:var(--green)"></span> Google Photos
+      </span>
+      <span id="badge-apple" class="badge badge-apple" style="display:none">
+        <span class="badge-dot" style="background:var(--apple)"></span> iPhone Library
+      </span>
+    </div>
+
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input id="search-input" type="text" placeholder="Search files…" autocomplete="off" />
+    </div>
+
+    <div class="header-actions">
+      <button id="btn-connect" class="btn btn-connect">+ Connect Library</button>
+      <button id="btn-sync" class="btn btn-ghost" style="display:none">↑ Sync</button>
+      <button id="btn-select" class="btn btn-select">⊡ Select</button>
+      <button id="btn-upload" class="btn btn-primary">↑ Upload</button>
+      <input id="file-input" type="file" multiple accept="image/*,video/*" style="display:none" />
+    </div>
+  </header>
+
+  <!-- BODY -->
+  <div id="body">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Storage</div>
+        <div class="storage-card">
+          <div class="storage-num" id="storage-num">—</div>
+          <div class="storage-sub" id="storage-sub">local library</div>
+          <div class="storage-bar"><div class="storage-fill"></div></div>
+          <div class="storage-pct">34% of 15 GB</div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Library</div>
+        <button class="nav-btn active" data-filter="all">
+          <span class="nav-icon">⬡</span> All Media
+          <span class="nav-count" id="cnt-all">0</span>
+        </button>
+        <button class="nav-btn" data-filter="photo">
+          <span class="nav-icon">◻</span> Photos
+          <span class="nav-count" id="cnt-photo">0</span>
+        </button>
+        <button class="nav-btn" data-filter="video">
+          <span class="nav-icon">▷</span> Videos
+          <span class="nav-count" id="cnt-video">0</span>
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">View</div>
+        <div class="view-row">
+          <button class="view-btn active" data-view="grid" title="Grid">⊞</button>
+          <button class="view-btn" data-view="masonry" title="Masonry">⊟</button>
+          <button class="view-btn" data-view="list" title="List">≡</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main id="main">
+
+      <!-- DROP ZONE -->
+      <div id="dropzone">
+        <div class="dz-icon">☁</div>
+        <div>
+          <div class="dz-title" id="dz-title">Drag & drop photos or videos here</div>
+          <div class="dz-sub" id="dz-sub">Or click to browse — JPG, PNG, MP4, MOV and more. Bulk upload supported.</div>
+        </div>
+        <button class="dz-btn">Browse Files</button>
+      </div>
+
+      <!-- UPLOAD PROGRESS -->
+      <div id="upload-bar">
+        <div class="upload-top">
+          <span class="upload-title" id="upload-title">Uploading…</span>
+          <span class="upload-pct" id="upload-pct">0%</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+        <div class="upload-files" id="upload-files"></div>
+      </div>
+
+      <!-- GALLERY -->
+      <div id="gallery"></div>
+      <div id="empty">
+        <div class="empty-icon">◈</div>
+        <div class="empty-title">No media found</div>
+        <div class="empty-sub">Try a different filter or upload new files</div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- FLOATING SELECT BAR -->
+  <div id="select-bar">
+    <div class="sb-circle" id="sb-circle">○</div>
+    <span class="sb-count" id="sb-count">Select items</span>
+    <div class="sb-divider"></div>
+    <button class="sb-btn" id="sb-all">Select all</button>
+    <button class="sb-btn desel" id="sb-desel" style="display:none">Deselect all</button>
+    <div class="sb-divider"></div>
+    <button class="sb-delete" id="sb-delete" disabled>🗑 Delete</button>
+    <button class="sb-cancel" id="sb-cancel">Cancel</button>
+  </div>
+
+</div><!-- #app -->
+
+<!-- DELETE CONFIRM MODAL -->
+<div id="delete-modal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-inner">
+      <div class="del-icon-wrap">🗑</div>
+      <div class="del-title" id="del-title">Delete items?</div>
+      <div class="del-desc" id="del-desc">This will permanently remove these items. This action cannot be undone.</div>
+      <div class="del-actions">
+        <button class="del-cancel" id="del-cancel">Cancel</button>
+        <button class="del-confirm" id="del-confirm">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONNECT MODAL -->
+<div id="connect-modal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-inner">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title">Connect Library</div>
+          <div class="modal-sub">Import and sync your photos automatically</div>
+        </div>
+        <button class="modal-close-btn" id="connect-close">✕</button>
+      </div>
+
+      <div class="connect-tabs">
+        <button class="ctab active" data-tab="google">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M12 12H2.4C2.4 9.35 4.55 7.2 7.2 7.2c1.66 0 3.12.8 4.04 2.03L12 12z" fill="#fbbc04"/>
+            <path d="M12 12V2.4C14.65 2.4 16.8 4.55 16.8 7.2c0 1.66-.8 3.12-2.03 4.04L12 12z" fill="#0f9d58"/>
+            <path d="M12 12h9.6C21.6 14.65 19.45 16.8 16.8 16.8c-1.66 0-3.12-.8-4.04-2.03L12 12z" fill="#ea4335"/>
+            <path d="M12 12V21.6C9.35 21.6 7.2 19.45 7.2 16.8c0-1.66.8-3.12 2.03-4.04L12 12z" fill="#4285f4"/>
+          </svg>
+          Google Photos
+        </button>
+        <button class="ctab" data-tab="apple">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#8a8aaa">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+          </svg>
+          iPhone / iCloud
+        </button>
+      </div>
+
+      <!-- Google Tab -->
+      <div class="tab-content active" id="tab-google">
+        <div id="google-disconnected">
+          <div class="connect-center">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" style="margin-bottom:10px">
+              <path d="M12 12H2.4C2.4 9.35 4.55 7.2 7.2 7.2c1.66 0 3.12.8 4.04 2.03L12 12z" fill="#fbbc04"/>
+              <path d="M12 12V2.4C14.65 2.4 16.8 4.55 16.8 7.2c0 1.66-.8 3.12-2.03 4.04L12 12z" fill="#0f9d58"/>
+              <path d="M12 12h9.6C21.6 14.65 19.45 16.8 16.8 16.8c-1.66 0-3.12-.8-4.04-2.03L12 12z" fill="#ea4335"/>
+              <path d="M12 12V21.6C9.35 21.6 7.2 19.45 7.2 16.8c0-1.66.8-3.12 2.03-4.04L12 12z" fill="#4285f4"/>
+            </svg>
+            <div class="connect-desc">Sign in with Google to import and auto-sync<br>your entire photo library.</div>
+          </div>
+          <div class="feature-list">
+            <div class="feature-row"><span class="feature-icon">🔄</span> Auto-sync new uploads to Google Photos</div>
+            <div class="feature-row"><span class="feature-icon">📅</span> Import existing albums with original dates</div>
+            <div class="feature-row"><span class="feature-icon">☁</span> 15 GB free · accessible from any device</div>
+            <div class="feature-row"><span class="feature-icon">🔒</span> Secure OAuth — no password stored</div>
+          </div>
+          <button class="connect-btn google" id="btn-google-connect">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M12 12H2.4C2.4 9.35 4.55 7.2 7.2 7.2c1.66 0 3.12.8 4.04 2.03L12 12z" fill="white"/>
+              <path d="M12 12V2.4C14.65 2.4 16.8 4.55 16.8 7.2c0 1.66-.8 3.12-2.03 4.04L12 12z" fill="white"/>
+              <path d="M12 12h9.6C21.6 14.65 19.45 16.8 16.8 16.8c-1.66 0-3.12-.8-4.04-2.03L12 12z" fill="white"/>
+              <path d="M12 12V21.6C9.35 21.6 7.2 19.45 7.2 16.8c0-1.66.8-3.12 2.03-4.04L12 12z" fill="white"/>
+            </svg>
+            Sign in with Google
+          </button>
+        </div>
+        <div id="google-connected" class="connected-state" style="display:none">
+          <div class="connected-icon" style="color:var(--green)">✓</div>
+          <div class="connected-title" style="color:var(--green)">Google Photos Connected</div>
+          <div class="connected-sub">Your library is syncing automatically.</div>
+          <button class="disconnect-btn" id="btn-google-disconnect">Disconnect</button>
+        </div>
+      </div>
+
+      <!-- Apple Tab -->
+      <div class="tab-content" id="tab-apple">
+        <div id="apple-disconnected">
+          <div class="connect-center" style="padding-bottom:14px">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="#e8e8f0" style="margin-bottom:10px">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+            </svg>
+            <div class="connect-desc">Connect your iPhone photo library via iCloud or USB<br>to import everything in one place.</div>
+          </div>
+          <div class="method-card">
+            <div class="method-icon-wrap">☁</div>
+            <div style="flex:1;min-width:0">
+              <div class="method-title-row">
+                <span class="method-title">iCloud Photos</span>
+                <span class="method-badge" style="color:var(--apple);background:#1e1a0e">Recommended</span>
+              </div>
+              <div class="method-desc">Sign in with Apple ID to sync your iCloud library automatically.</div>
+              <button class="method-btn" id="btn-apple-connect" style="background:linear-gradient(135deg,#1c1c1e,#3a3a3c)">
+                Sign in with Apple ID
+              </button>
+            </div>
+          </div>
+          <div class="method-card">
+            <div class="method-icon-wrap">🔌</div>
+            <div style="flex:1;min-width:0">
+              <div class="method-title-row">
+                <span class="method-title">USB Transfer</span>
+                <span class="method-badge" style="color:#6a8a9a;background:#0e1a1e">Offline</span>
+              </div>
+              <div class="method-desc">Connect via Lightning or USB-C cable to bulk-import photos directly from your iPhone.</div>
+              <button class="method-btn" id="btn-usb" style="background:#1a1a2a">Select from device</button>
+            </div>
+          </div>
+          <div class="method-card">
+            <div class="method-icon-wrap">📤</div>
+            <div style="flex:1;min-width:0">
+              <div class="method-title-row">
+                <span class="method-title">AirDrop / Export</span>
+                <span class="method-badge" style="color:#5a6a7a;background:#0e1214">Manual</span>
+              </div>
+              <div class="method-desc">AirDrop to Mac or export from the Photos app, then drag files into Memoria.</div>
+              <button class="method-btn" id="btn-airdrop" style="background:#141420">I'll drag &amp; drop</button>
+            </div>
+          </div>
+          <div class="tip-box">
+            💡 <strong style="color:#6a6a8a">Tip:</strong> Enable iCloud Photos in iPhone Settings → Photos. HEIC files are automatically converted to JPEG on import.
+          </div>
+        </div>
+        <div id="apple-connected" class="connected-state" style="display:none">
+          <div class="connected-icon" style="color:var(--apple)">✓</div>
+          <div class="connected-title" style="color:var(--apple)">iPhone Library Connected</div>
+          <div class="connected-sub">iCloud Photos are syncing to your library.</div>
+          <button class="disconnect-btn" id="btn-apple-disconnect">Disconnect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox">
+  <button class="lb-close" id="lb-close">✕</button>
+  <button class="lb-nav" id="lb-prev">‹</button>
+  <div class="lb-content">
+    <img id="lb-img" src="" alt="" />
+    <div class="lb-meta">
+      <span class="lb-name" id="lb-name"></span>
+      <span class="lb-size" id="lb-size"></span>
+      <span class="lb-sync" id="lb-sync"></span>
+      <a class="lb-open" id="lb-open" href="#" style="display:none">Open in Google Photos ↗</a>
+    </div>
+    <div class="lb-date" id="lb-date"></div>
+  </div>
+  <button class="lb-nav" id="lb-next">›</button>
+  <div class="lb-counter" id="lb-counter"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"><span id="toast-icon"></span><span id="toast-msg"></span></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────
+const ITEMS = [
+  { id:1,  name:"vacation_beach.jpg",  date:"2024-07-15", size:3200000, type:"photo", thumb:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&q=80" },
+  { id:2,  name:"birthday_party.jpg",  date:"2024-07-15", size:2800000, type:"photo", thumb:"https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=400&q=80" },
+  { id:3,  name:"sunset_hike.jpg",     date:"2024-07-14", size:4100000, type:"photo", thumb:"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&q=80" },
+  { id:4,  name:"morning_coffee.jpg",  date:"2024-07-14", size:1900000, type:"photo", thumb:"https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&q=80" },
+  { id:5,  name:"city_walk.mp4",       date:"2024-07-13", size:45000000,type:"video", thumb:"https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=400&q=80" },
+  { id:6,  name:"garden_flowers.jpg",  date:"2024-07-12", size:2200000, type:"photo", thumb:"https://images.unsplash.com/photo-1490750967868-88df5691cc53?w=400&q=80" },
+  { id:7,  name:"family_dinner.jpg",   date:"2024-06-28", size:3500000, type:"photo", thumb:"https://images.unsplash.com/photo-1547592180-85f173990554?w=400&q=80" },
+  { id:8,  name:"road_trip.mp4",       date:"2024-06-20", size:78000000,type:"video", thumb:"https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400&q=80" },
+  { id:9,  name:"mountain_peak.jpg",   date:"2024-06-15", size:5100000, type:"photo", thumb:"https://images.unsplash.com/photo-1464278533981-50106e6176b1?w=400&q=80" },
+  { id:10, name:"street_art.jpg",      date:"2024-05-22", size:2700000, type:"photo", thumb:"https://images.unsplash.com/photo-1499781350541-7783f6c6a0c8?w=400&q=80" },
+  { id:11, name:"pool_day.jpg",        date:"2024-05-10", size:3900000, type:"photo", thumb:"https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?w=400&q=80" },
+  { id:12, name:"cooking_class.mp4",   date:"2024-05-05", size:55000000,type:"video", thumb:"https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&q=80" },
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────
+let items       = [...ITEMS];
+let filter      = "all";
+let viewMode    = "grid";
+let search      = "";
+let gpConnected = false;
+let apConnected = false;
+let selectMode  = false;
+let selected    = new Set();
+let lbIndex     = -1;
+let toastTimer  = null;
+
+// ── HELPERS ──────────────────────────────────────────────────────────
+const fmtSize = b => b < 1048576 ? `${(b/1024).toFixed(0)} KB` : `${(b/1048576).toFixed(1)} MB`;
+const fmtMonth = d => new Date(d).toLocaleDateString("en-US",{year:"numeric",month:"long"});
+const fmtDay   = d => new Date(d).toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+const isVid    = n => /\.(mp4|mov|avi|webm|mkv)$/i.test(n);
+const totalSize = () => items.reduce((a,b)=>a+b.size,0);
+
+function getFiltered() {
+  return items.filter(i => {
+    const mf = filter==="all" || i.type===filter;
+    const ms = i.name.toLowerCase().includes(search.toLowerCase());
+    return mf && ms;
+  });
+}
+
+// ── TOAST ──────────────────────────────────────────────────────────────
+function showToast(msg, type="success") {
+  const el = document.getElementById("toast");
+  const icons = {success:"✓", info:"ℹ", apple:"", error:"✕"};
+  el.className = `show ${type}`;
+  document.getElementById("toast-icon").textContent = icons[type]||"✓";
+  document.getElementById("toast-msg").textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ el.classList.remove("show"); }, 3200);
+}
+
+// ── SIDEBAR COUNTS ────────────────────────────────────────────────────
+function updateCounts() {
+  document.getElementById("cnt-all").textContent   = items.length;
+  document.getElementById("cnt-photo").textContent = items.filter(i=>i.type==="photo").length;
+  document.getElementById("cnt-video").textContent = items.filter(i=>i.type==="video").length;
+  const s = fmtSize(totalSize());
+  document.getElementById("storage-num").textContent = s;
+  document.getElementById("storage-sub").textContent = gpConnected ? "synced with Google Photos" : apConnected ? "synced with iPhone Library" : "local library";
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────
+function render() {
+  updateCounts();
+  const filtered = getFiltered();
+  const gallery  = document.getElementById("gallery");
+  const empty    = document.getElementById("empty");
+  gallery.innerHTML = "";
+
+  if (!filtered.length) { empty.style.display="block"; return; }
+  empty.style.display = "none";
+
+  // group by month → day
+  const months = {};
+  filtered.forEach(item => {
+    const m = fmtMonth(item.date);
+    const d = item.date;
+    if (!months[m]) months[m] = {};
+    if (!months[m][d]) months[m][d] = [];
+    months[m][d].push(item);
+  });
+
+  const sortedMonths = Object.keys(months).sort((a,b)=>{
+    const ad = Object.keys(months[a])[0], bd = Object.keys(months[b])[0];
+    return new Date(bd)-new Date(ad);
+  });
+
+  sortedMonths.forEach(month => {
+    const mg = document.createElement("div");
+    mg.className = "month-group";
+
+    const mh = document.createElement("div");
+    mh.className = "month-header";
+    mh.innerHTML = `<div class="month-title">${month}</div>`;
+    mg.appendChild(mh);
+
+    const days = months[month];
+    const sortedDays = Object.keys(days).sort((a,b)=>new Date(b)-new Date(a));
+
+    sortedDays.forEach(day => {
+      const dayItems = days[day];
+      const dg = document.createElement("div");
+      dg.className = "day-group";
+
+      dg.innerHTML = `
+        <div class="day-header">
+          <span class="day-label">${fmtDay(day)}</span>
+          <div class="day-line"></div>
+          <span class="day-count">${dayItems.length} item${dayItems.length>1?"s":""}</span>
+        </div>`;
+
+      if (viewMode === "list") {
+        const lv = document.createElement("div");
+        lv.className = "list-view";
+        dayItems.forEach(item => {
+          const syncLabel = gpConnected||apConnected ? (gpConnected?"Photos ✓":"iPhone ✓") : "Local";
+          const syncClass = gpConnected||apConnected ? "ok" : "";
+          lv.innerHTML += `
+            <div class="list-row ${selected.has(item.id)?"selected":""}" data-id="${item.id}">
+              <div class="list-thumb">
+                <img src="${item.thumb}" alt="${item.name}" loading="lazy" />
+                ${item.type==="video"?'<div class="vplay">▷</div>':""}
+              </div>
+              <div style="flex:1;min-width:0">
+                <div class="list-name">${item.name}</div>
+                <div class="list-meta">${item.type==="video"?"Video":"Photo"} · ${fmtSize(item.size)}</div>
+              </div>
+              <div class="list-end">
+                <span class="synced-pill ${syncClass}">${syncLabel}</span>
+                <div class="list-check">${selected.has(item.id)?"✓":""}</div>
+              </div>
+            </div>`;
+        });
+        dg.appendChild(lv);
+      } else {
+        const gv = document.createElement("div");
+        gv.className = viewMode==="masonry" ? "masonry-view" : "grid-view";
+        dayItems.forEach(item => {
+          const syncLabel = gpConnected||apConnected ? (gpConnected?"Photos ✓":"iPhone ✓") : "Local";
+          const syncClass = gpConnected||apConnected ? "synced" : "";
+          gv.innerHTML += `
+            <div class="media-card ${selected.has(item.id)?"selected":""}" data-id="${item.id}">
+              <img src="${item.thumb}" alt="${item.name}" loading="lazy" />
+              <div class="card-overlay"></div>
+              ${item.type==="video"?'<div class="video-play"><div class="play-circle">▷</div></div>':""}
+              <div class="card-badge ${syncClass}">${syncLabel}</div>
+              <div class="select-check">${selected.has(item.id)?"✓":""}</div>
+            </div>`;
+        });
+        dg.appendChild(gv);
+      }
+      mg.appendChild(dg);
+    });
+    gallery.appendChild(mg);
+  });
+
+  // Apply select mode class
+  if (selectMode) gallery.classList.add("select-mode");
+  else gallery.classList.remove("select-mode");
+
+  // Card click handlers
+  gallery.querySelectorAll(".media-card, .list-row").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = parseInt(el.dataset.id);
+      if (selectMode) {
+        toggleSelect(id);
+      } else {
+        openLightbox(id);
+      }
+    });
+  });
+}
+
+// ── SELECT ────────────────────────────────────────────────────────────
+function toggleSelect(id) {
+  if (selected.has(id)) selected.delete(id); else selected.add(id);
+  updateSelectBar();
+  render();
+}
+
+function updateSelectBar() {
+  const bar    = document.getElementById("select-bar");
+  const circle = document.getElementById("sb-circle");
+  const count  = document.getElementById("sb-count");
+  const del    = document.getElementById("sb-delete");
+  const desel  = document.getElementById("sb-desel");
+  const n = selected.size;
+
+  bar.classList.toggle("visible", selectMode);
+  circle.className = "sb-circle" + (n>0?" has-sel":"");
+  circle.textContent = n>0 ? "✓" : "○";
+  count.textContent  = n===0 ? "Select items" : `${n} selected`;
+  del.disabled = n===0;
+  del.textContent = n>0 ? `🗑 Delete ${n}` : "🗑 Delete";
+  desel.style.display = n>0 ? "inline-flex" : "none";
+
+  // Update all button text
+  document.getElementById("sb-all").textContent = `Select all (${getFiltered().length})`;
+}
+
+function enterSelectMode() {
+  selectMode = true;
+  selected.clear();
+  document.getElementById("btn-select").classList.add("active");
+  document.getElementById("btn-select").textContent = "⊡ Done";
+  updateSelectBar();
+  render();
+}
+
+function exitSelectMode() {
+  selectMode = false;
+  selected.clear();
+  document.getElementById("btn-select").classList.remove("active");
+  document.getElementById("btn-select").textContent = "⊡ Select";
+  updateSelectBar();
+  render();
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────
+function openDeleteConfirm() {
+  if (!selected.size) return;
+  const n = selected.size;
+  document.getElementById("del-title").textContent = `Delete ${n} item${n>1?"s":""}?`;
+  document.getElementById("del-desc").textContent =
+    `This will permanently remove ${n===1?"this item":`these ${n} items`} from your library. This action cannot be undone.`;
+  document.getElementById("del-confirm").textContent = `Delete ${n>1?`all ${n}`:"item"}`;
+  document.getElementById("delete-modal").classList.add("open");
+}
+
+function confirmDelete() {
+  const n = selected.size;
+  items = items.filter(i => !selected.has(i.id));
+  selected.clear();
+  document.getElementById("delete-modal").classList.remove("open");
+  exitSelectMode();
+  render();
+  showToast(`${n} item${n>1?"s":""} deleted`, "info");
+}
+
+// ── UPLOAD ────────────────────────────────────────────────────────────
+function handleFiles(files) {
+  const arr = Array.from(files);
+  if (!arr.length) return;
+  const bar = document.getElementById("upload-bar");
+  bar.style.display = "block";
+  document.getElementById("upload-title").textContent =
+    `${gpConnected||apConnected?"Uploading":"Adding"} ${arr.length} file${arr.length>1?"s":""}${gpConnected?" to Google Photos…":apConnected?" to iPhone Library…":"…"}`;
+  document.getElementById("upload-files").innerHTML =
+    arr.slice(0,6).map(f=>`<div class="upload-chip">${f.name.length>18?f.name.slice(0,18)+"…":f.name}</div>`).join("") +
+    (arr.length>6?`<div class="upload-chip">+${arr.length-6} more</div>`:"");
+
+  let pct = 0;
+  const fill = document.getElementById("prog-fill");
+  const pctEl = document.getElementById("upload-pct");
+  const iv = setInterval(()=>{
+    pct += Math.random()*18+5;
+    if (pct>=100) {
+      pct=100; clearInterval(iv);
+      arr.forEach((f,i)=>{
+        items.unshift({
+          id: Date.now()+i, name:f.name,
+          date: new Date().toISOString().split("T")[0],
+          size:f.size, type:isVid(f.name)?"video":"photo",
+          thumb: URL.createObjectURL(f)
+        });
+      });
+      setTimeout(()=>{
+        bar.style.display="none";
+        render();
+        showToast(`${arr.length} file${arr.length>1?"s":""} ${gpConnected?"uploaded to Google Photos":apConnected?"uploaded to iPhone Library":"added to library"}`, "success");
+      }, 600);
+    }
+    fill.style.width = Math.min(pct,100)+"%";
+    pctEl.textContent = Math.round(Math.min(pct,100))+"%";
+  }, 120);
+}
+
+// ── LIGHTBOX ──────────────────────────────────────────────────────────
+function openLightbox(id) {
+  const filtered = getFiltered();
+  lbIndex = filtered.findIndex(i=>i.id===id);
+  showLb();
+}
+function showLb() {
+  const filtered = getFiltered();
+  if (lbIndex<0||lbIndex>=filtered.length) return;
+  const item = filtered[lbIndex];
+  document.getElementById("lb-img").src  = item.thumb;
+  document.getElementById("lb-name").textContent = item.name;
+  document.getElementById("lb-size").textContent = fmtSize(item.size);
+  document.getElementById("lb-date").textContent = fmtDay(item.date);
+  const sync = document.getElementById("lb-sync");
+  const open = document.getElementById("lb-open");
+  if (gpConnected||apConnected) {
+    sync.className="lb-sync ok";
+    sync.textContent = gpConnected?"Saved to Google Photos ✓":"Saved to iPhone Library ✓";
+    open.style.display=gpConnected?"inline":"none";
+  } else {
+    sync.className="lb-sync local"; sync.textContent="Saved locally ✓";
+    open.style.display="none";
+  }
+  document.getElementById("lb-counter").textContent =
+    `${lbIndex+1} / ${filtered.length} · ← → to navigate · Esc to close`;
+  document.getElementById("lb-prev").style.display = lbIndex>0?"flex":"none";
+  document.getElementById("lb-next").style.display = lbIndex<filtered.length-1?"flex":"none";
+  document.getElementById("lightbox").classList.add("open");
+}
+function closeLightbox() { document.getElementById("lightbox").classList.remove("open"); }
+
+// ── CONNECT ───────────────────────────────────────────────────────────
+function simulateConnect(type) {
+  const btn = document.getElementById(type==="google"?"btn-google-connect":"btn-apple-connect");
+  btn.disabled=true; btn.classList.add("loading");
+  btn.innerHTML=`<svg class="spinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,.25)" stroke-width="3" fill="none"/><path d="M12 2a10 10 0 0110 10" stroke="white" stroke-width="3" stroke-linecap="round" fill="none"/></svg> Connecting…`;
+  setTimeout(()=>{
+    btn.disabled=false; btn.classList.remove("loading");
+    if (type==="google") {
+      gpConnected=true;
+      document.getElementById("google-disconnected").style.display="none";
+      document.getElementById("google-connected").style.display="block";
+      document.getElementById("badge-google").style.display="inline-flex";
+      btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 12H2.4C2.4 9.35 4.55 7.2 7.2 7.2c1.66 0 3.12.8 4.04 2.03L12 12z" fill="white"/><path d="M12 12V2.4C14.65 2.4 16.8 4.55 16.8 7.2c0 1.66-.8 3.12-2.03 4.04L12 12z" fill="white"/><path d="M12 12h9.6C21.6 14.65 19.45 16.8 16.8 16.8c-1.66 0-3.12-.8-4.04-2.03L12 12z" fill="white"/><path d="M12 12V21.6C9.35 21.6 7.2 19.45 7.2 16.8c0-1.66.8-3.12 2.03-4.04L12 12z" fill="white"/></svg> Sign in with Google`;
+      showToast("Google Photos connected!", "success");
+    } else {
+      apConnected=true;
+      document.getElementById("apple-disconnected").style.display="none";
+      document.getElementById("apple-connected").style.display="block";
+      document.getElementById("badge-apple").style.display="inline-flex";
+      showToast("iPhone Library connected!", "apple");
+    }
+    updateSyncBtn(); updateCounts(); render();
+    closeConnectModal();
+  }, 2200);
+}
+
+function updateSyncBtn() {
+  const connected = gpConnected||apConnected;
+  document.getElementById("btn-sync").style.display = connected?"inline-flex":"none";
+  if (!gpConnected && !apConnected) {
+    document.getElementById("btn-connect").style.display="inline-flex";
+  } else if (gpConnected && apConnected) {
+    document.getElementById("btn-connect").style.display="none";
+  }
+}
+
+function openConnectModal(tab="google") {
+  setConnectTab(tab);
+  document.getElementById("connect-modal").classList.add("open");
+}
+function closeConnectModal() {
+  document.getElementById("connect-modal").classList.remove("open");
+}
+function setConnectTab(tab) {
+  document.querySelectorAll(".ctab").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
+  document.querySelectorAll(".tab-content").forEach(c=>c.classList.toggle("active", c.id===`tab-${tab}`));
+}
+
+// ── EVENT LISTENERS ──────────────────────────────────────────────────
+// Search
+document.getElementById("search-input").addEventListener("input", e=>{ search=e.target.value; render(); });
+
+// Filter nav
+document.querySelectorAll(".nav-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    filter=btn.dataset.filter;
+    document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    render();
+  });
+});
+
+// View mode
+document.querySelectorAll(".view-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    viewMode=btn.dataset.view;
+    document.querySelectorAll(".view-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    render();
+  });
+});
+
+// Upload
+const fileInput = document.getElementById("file-input");
+document.getElementById("btn-upload").addEventListener("click",()=>fileInput.click());
+document.getElementById("btn-sync").addEventListener("click",()=>fileInput.click());
+fileInput.addEventListener("change", e=>{ if(e.target.files.length) handleFiles(e.target.files); e.target.value=""; });
+
+// Dropzone
+const dz = document.getElementById("dropzone");
+dz.addEventListener("click",()=>fileInput.click());
+dz.addEventListener("dragover", e=>{ e.preventDefault(); dz.classList.add("drag-over"); document.getElementById("dz-title").textContent="Drop to upload"; });
+dz.addEventListener("dragleave",()=>{ dz.classList.remove("drag-over"); document.getElementById("dz-title").textContent="Drag & drop photos or videos here"; });
+dz.addEventListener("drop", e=>{ e.preventDefault(); dz.classList.remove("drag-over"); document.getElementById("dz-title").textContent="Drag & drop photos or videos here"; if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+
+// Select mode
+document.getElementById("btn-select").addEventListener("click",()=>{ selectMode ? exitSelectMode() : enterSelectMode(); });
+
+// Select bar
+document.getElementById("sb-all").addEventListener("click",()=>{ selected=new Set(getFiltered().map(i=>i.id)); updateSelectBar(); render(); });
+document.getElementById("sb-desel").addEventListener("click",()=>{ selected.clear(); updateSelectBar(); render(); });
+document.getElementById("sb-delete").addEventListener("click", openDeleteConfirm);
+document.getElementById("sb-cancel").addEventListener("click", exitSelectMode);
+
+// Delete modal
+document.getElementById("del-cancel").addEventListener("click",()=>document.getElementById("delete-modal").classList.remove("open"));
+document.getElementById("del-confirm").addEventListener("click", confirmDelete);
+document.getElementById("delete-modal").addEventListener("click", e=>{ if(e.target===document.getElementById("delete-modal")) document.getElementById("delete-modal").classList.remove("open"); });
+
+// Connect modal
+document.getElementById("btn-connect").addEventListener("click",()=>openConnectModal(gpConnected?"apple":"google"));
+document.getElementById("connect-close").addEventListener("click", closeConnectModal);
+document.getElementById("connect-modal").addEventListener("click", e=>{ if(e.target===document.getElementById("connect-modal")) closeConnectModal(); });
+document.querySelectorAll(".ctab").forEach(btn=>btn.addEventListener("click",()=>setConnectTab(btn.dataset.tab)));
+document.getElementById("btn-google-connect").addEventListener("click",()=>simulateConnect("google"));
+document.getElementById("btn-apple-connect").addEventListener("click",()=>simulateConnect("apple"));
+document.getElementById("btn-usb").addEventListener("click",()=>{ fileInput.click(); closeConnectModal(); });
+document.getElementById("btn-airdrop").addEventListener("click", closeConnectModal);
+document.getElementById("btn-google-disconnect").addEventListener("click",()=>{ gpConnected=false; document.getElementById("google-disconnected").style.display="block"; document.getElementById("google-connected").style.display="none"; document.getElementById("badge-google").style.display="none"; document.getElementById("btn-connect").style.display="inline-flex"; updateCounts(); render(); showToast("Google Photos disconnected","info"); closeConnectModal(); });
+document.getElementById("btn-apple-disconnect").addEventListener("click",()=>{ apConnected=false; document.getElementById("apple-disconnected").style.display="block"; document.getElementById("apple-connected").style.display="none"; document.getElementById("badge-apple").style.display="none"; document.getElementById("btn-connect").style.display="inline-flex"; updateCounts(); render(); showToast("iPhone library disconnected","info"); closeConnectModal(); });
+
+// Lightbox
+document.getElementById("lb-close").addEventListener("click", closeLightbox);
+document.getElementById("lightbox").addEventListener("click", e=>{ if(e.target===document.getElementById("lightbox")||e.target===document.querySelector(".lb-content")||e.target===document.getElementById("lb-img")) return; closeLightbox(); });
+document.getElementById("lb-close").addEventListener("click", closeLightbox);
+document.getElementById("lb-prev").addEventListener("click", e=>{ e.stopPropagation(); lbIndex--; showLb(); });
+document.getElementById("lb-next").addEventListener("click", e=>{ e.stopPropagation(); lbIndex++; showLb(); });
+document.addEventListener("keydown", e=>{
+  if (document.getElementById("lightbox").classList.contains("open")) {
+    if (e.key==="ArrowRight") { lbIndex++; showLb(); }
+    if (e.key==="ArrowLeft")  { lbIndex--; showLb(); }
+    if (e.key==="Escape")     closeLightbox();
+  }
+  if (e.key==="Escape") {
+    closeConnectModal();
+    document.getElementById("delete-modal").classList.remove("open");
+  }
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
